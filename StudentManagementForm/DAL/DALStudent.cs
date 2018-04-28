@@ -12,6 +12,7 @@ namespace StudentManagementForm.DAL
         static SqlConnection _connection = new DbManager().Connection;
         static SqlCommand _command;
         static SqlDataAdapter _adapter;
+        static SqlTransaction _transaction;
 
         public static List<Student> GetAllStudent() 
         {
@@ -28,6 +29,7 @@ namespace StudentManagementForm.DAL
             {
                 _connection.Open();
                 _adapter.Fill(dataTable);
+                _connection.Close();
 
                 IEnumerable<DataRow> rows = dataTable.Rows.Cast<DataRow>();
                 foreach (var row in rows)
@@ -38,8 +40,6 @@ namespace StudentManagementForm.DAL
                     Student.Courses = courses;
                     StudentList.Add(Student);
                 }
-
-                _connection.Close();
             }
             catch (Exception ex)
             {
@@ -64,8 +64,8 @@ namespace StudentManagementForm.DAL
 
         public static void Insert(Student Student)
         {
-            _command = new SqlCommand("insert into StudentList(StudentID, Name, Gender, [Group]) values(@StudentID, @Name, @Gender, @Group)", _connection);
-
+            _command = new SqlCommand("insert into StudentList(StudentID, Name, Gender, [Group]) values(@StudentID, @Name, @Gender, @Group)");
+            
             _command.Parameters.AddWithValue("@StudentID", Student.StudentID);
             _command.Parameters.AddWithValue("@Name", Student.Name);
             _command.Parameters.AddWithValue("@Gender", Student.Gender);
@@ -74,18 +74,27 @@ namespace StudentManagementForm.DAL
             try
             {
                 _connection.Open();
+                _transaction = _connection.BeginTransaction();
+
+                _command.Connection = _connection;
+                _command.Transaction = _transaction;
+
                 _command.ExecuteNonQuery();
-                _connection.Close();
+                
 
                 foreach (var course in Student.Courses)
                 {
                     course.StudentID = Student.StudentID;
-                    DalCourse.Insert(course);
+                    DalCourse.Insert(true, course, _connection, _transaction);
                 }
+
+                _transaction.Commit();
+                _connection.Close();
                
             }
             catch (Exception ex)
             {
+                _transaction.Rollback();
                 _connection.Close();
                 throw ex;
             }
@@ -93,7 +102,7 @@ namespace StudentManagementForm.DAL
 
         public static void Update(Student Student)
         {
-            _command = new SqlCommand("update StudentList set StudentID = @StudentID, Name= @Name, Gender = @Gender, [Group] = @Group where SerialNo=@SerialNo", _connection);
+            _command = new SqlCommand("update StudentList set StudentID = @StudentID, Name= @Name, Gender = @Gender, [Group] = @Group where SerialNo=@SerialNo");
 
             _command.Parameters.AddWithValue("@StudentID", Student.StudentID);
             _command.Parameters.AddWithValue("@Name", Student.Name);
@@ -103,17 +112,26 @@ namespace StudentManagementForm.DAL
             try
             {
                 _connection.Open();
-                _command.ExecuteNonQuery();
-                _connection.Close();
+                _transaction = _connection.BeginTransaction();
 
-                DalCourse.Delete(Student.StudentID);
+                _command.Connection = _connection;
+                _command.Transaction = _transaction;
+
+                _command.ExecuteNonQuery();
+
+                DalCourse.Delete(true, Student.StudentID, _connection, _transaction);
+
                 foreach (var course in Student.Courses)
-                {   
-                    DalCourse.Insert(course);
+                {
+                    DalCourse.Insert(true, course, _connection, _transaction);
                 }
+
+                _transaction.Commit();
+                _connection.Close();
             }
             catch (Exception ex)
             {
+                _transaction.Rollback();
                 _connection.Close();
                 throw ex;
             }
@@ -121,19 +139,28 @@ namespace StudentManagementForm.DAL
 
         public static void Delete(Student Student)
         {
-            _command = new SqlCommand("delete from StudentList where SerialNo=@SerialNo", _connection);
+            _command = new SqlCommand("delete from StudentList where SerialNo=@SerialNo");
 
             _command.Parameters.AddWithValue("@SerialNo", Student.SerialNo);
 
             try
             {
-                DalCourse.Delete(Student.StudentID);
                 _connection.Open();
+                _transaction = _connection.BeginTransaction();
+
+                _command.Connection = _connection;
+                _command.Transaction = _transaction;
+
+                DalCourse.Delete(true, Student.StudentID, _connection, _transaction);
+                
                 _command.ExecuteNonQuery();
+
+                _transaction.Commit();
                 _connection.Close();
             }
             catch (Exception ex)
             {
+                _transaction.Rollback();
                 _connection.Close();
                 throw ex;
             }

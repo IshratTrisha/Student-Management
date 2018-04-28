@@ -12,6 +12,7 @@ namespace StudentManagementForm.DAL
        static SqlConnection _connection = new DbManager().Connection; // why new sqlConnection name??? _Connection
        static SqlCommand _command;
        static SqlDataAdapter _adapter;
+       static SqlTransaction _transaction;
 
        public static List<Course> GetByStudentId(int? studentId) // why??? what r these called???
        {
@@ -65,9 +66,9 @@ namespace StudentManagementForm.DAL
            return course;
        }
 
-        public static void Insert(Course course)
-        {
-            _command = new SqlCommand("insert into CourseList(CourseCode, CourseTitle, CourseTeacher,StudentID) values(@CourseCode, @CourseTitle, @CourseTeacher, @StudentID)", _connection);
+        public static void Insert(bool transactionMode, Course course, SqlConnection remoteConn=null, SqlTransaction remoteTran=null)
+        {   
+            _command = new SqlCommand("insert into CourseList(CourseCode, CourseTitle, CourseTeacher,StudentID) values(@CourseCode, @CourseTitle, @CourseTeacher, @StudentID)");
 
             _command.Parameters.AddWithValue("@CourseCode", course.CourseCode);
             _command.Parameters.AddWithValue("@CourseTitle", course.CourseTitle);
@@ -76,13 +77,23 @@ namespace StudentManagementForm.DAL
 
             try
             {
-                _connection.Open();
+                if (!transactionMode)
+                    _connection.Open();
+                else
+                {
+                    _command.Connection = remoteConn;
+                    _command.Transaction = remoteTran;
+                }                    
+
                 _command.ExecuteNonQuery();
-                _connection.Close();
+
+                if (!transactionMode)
+                    _connection.Close();
             }
             catch (Exception ex)
             {
-                _connection.Close();
+                if (!transactionMode)
+                    _connection.Close();
                 throw ex;
             }   
         }
@@ -109,21 +120,32 @@ namespace StudentManagementForm.DAL
             }
         }
         
-        public static void Delete(int studentId)
+        public static void Delete(bool transactionMode, int studentId, SqlConnection remoteConn=null, SqlTransaction remoteTran=null)
         {
-            _command = new SqlCommand("delete from CourseList where StudentID=@StudentID", _connection);
+            _command = new SqlCommand("delete from CourseList where StudentID=@StudentID");
 
             _command.Parameters.AddWithValue("@StudentID", studentId);
 
             try
             {
-                _connection.Open();
+                if (!transactionMode)
+                    _connection.Open();
+                else
+                {
+                    _connection = remoteConn;
+                    _command.Transaction = remoteTran;
+                }
+                _command.Connection = _connection;
+
                 _command.ExecuteNonQuery();
-                _connection.Close();
+
+                if(!transactionMode)
+                    _connection.Close();
             }
             catch (Exception ex)
             {
-                _connection.Close();
+                if(!transactionMode)
+                    _connection.Close();
                 throw ex;
             }
         }
