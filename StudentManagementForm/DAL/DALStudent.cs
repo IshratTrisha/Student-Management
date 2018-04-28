@@ -13,7 +13,7 @@ namespace StudentManagementForm.DAL
         static SqlCommand _command;
         static SqlDataAdapter _adapter;
 
-        public static List<Student> GetAllStudent() // explain this whole thing
+        public static List<Student> GetAllStudent() 
         {
             List<Student> StudentList = new List<Student>();
             DataTable dataTable = new DataTable();
